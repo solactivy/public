@@ -41,20 +41,70 @@ echo -e "${YELLOW}Checking dependencies...${NC}"
 
 # Check for Node.js
 if ! command -v node &> /dev/null; then
-    echo -e "${RED}Node.js is not installed. Please install Node.js 18+ first.${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠ Node.js is not installed.${NC}"
+    echo -e "${YELLOW}Node.js 18+ is required for Kern Agent Service.${NC}"
+    echo ""
+    read -p "Install Node.js automatically? (y/n) " -n 1 -r
+    echo ""
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Installing Node.js...${NC}"
+        
+        if [ "$OS" == "macos" ]; then
+            # Install via Homebrew on macOS
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}Installing Homebrew first...${NC}"
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            
+            echo -e "${YELLOW}Installing Node.js via Homebrew...${NC}"
+            brew install node@20
+            
+        elif [ "$OS" == "linux" ]; then
+            # Install via NodeSource on Linux
+            echo -e "${YELLOW}Installing Node.js 20 LTS via NodeSource...${NC}"
+            
+            # Detect package manager
+            if command -v apt-get &> /dev/null; then
+                curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+                apt-get install -y nodejs
+            elif command -v yum &> /dev/null; then
+                curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+                yum install -y nodejs
+            elif command -v dnf &> /dev/null; then
+                curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+                dnf install -y nodejs
+            else
+                echo -e "${RED}Unsupported package manager. Please install Node.js manually.${NC}"
+                exit 1
+            fi
+        fi
+        
+        # Verify installation
+        if command -v node &> /dev/null; then
+            echo -e "${GREEN}✓ Node.js $(node -v) installed successfully${NC}"
+        else
+            echo -e "${RED}Node.js installation failed. Please install manually.${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}Node.js is required. Installation cancelled.${NC}"
+        exit 1
+    fi
 fi
 
+# Verify Node.js version
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 if [ "$NODE_VERSION" -lt 18 ]; then
     echo -e "${RED}Node.js version 18+ required. Current version: $(node -v)${NC}"
+    echo -e "${YELLOW}Please upgrade Node.js and try again.${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓ Node.js $(node -v)${NC}"
 
 # Check for npm
 if ! command -v npm &> /dev/null; then
-    echo -e "${RED}npm is not installed${NC}"
+    echo -e "${RED}npm is not installed (should come with Node.js)${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓ npm $(npm -v)${NC}"
