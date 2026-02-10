@@ -68,33 +68,46 @@ echo -e "${GREEN}✓ git${NC}"
 
 # Check for OpenClaw
 if ! command -v openclaw &> /dev/null; then
-    echo -e "${YELLOW}⚠ OpenClaw is not installed. Installing OpenClaw...${NC}"
-    echo -e "${YELLOW}Running: curl -fsSL https://openclaw.ai/install.sh | bash${NC}"
+    echo -e "${YELLOW}⚠ OpenClaw is not installed.${NC}"
+    echo -e "${YELLOW}The Kern Agent Service requires OpenClaw to function.${NC}"
+    echo ""
+    echo -e "Would you like to:"
+    echo -e "  1) Try to install OpenClaw automatically (recommended)"
+    echo -e "  2) Skip OpenClaw installation (install manually later)"
+    echo -e "  3) Cancel installation"
+    echo ""
+    read -p "Enter choice [1-3]: " -n 1 -r
+    echo ""
     
-    if curl -fsSL https://openclaw.ai/install.sh | bash; then
-        echo -e "${GREEN}✓ OpenClaw installed successfully${NC}"
+    if [[ $REPLY == "1" ]]; then
+        echo -e "${YELLOW}Installing OpenClaw...${NC}"
+        echo -e "${YELLOW}Running: curl -fsSL https://openclaw.ai/install.sh | bash${NC}"
+        echo ""
         
-        # Verify installation
-        if command -v openclaw &> /dev/null; then
-            echo -e "${GREEN}✓ OpenClaw $(openclaw --version)${NC}"
-        else
-            echo -e "${RED}OpenClaw installation completed but command not found.${NC}"
-            echo -e "${YELLOW}You may need to restart your shell or add OpenClaw to PATH.${NC}"
-            echo -e "${YELLOW}Try running: source ~/.bashrc (or ~/.zshrc)${NC}"
-            read -p "Continue anyway? (y/n) " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                exit 1
+        if curl -fsSL https://openclaw.ai/install.sh | bash; then
+            echo ""
+            echo -e "${GREEN}✓ OpenClaw installation completed${NC}"
+            
+            # Verify installation
+            if command -v openclaw &> /dev/null; then
+                echo -e "${GREEN}✓ OpenClaw $(openclaw --version) is available${NC}"
+            else
+                echo -e "${YELLOW}⚠ OpenClaw installed but not in PATH${NC}"
+                echo -e "${YELLOW}You may need to restart your shell or run: source ~/.zshrc${NC}"
             fi
+        else
+            echo ""
+            echo -e "${RED}⚠ OpenClaw installation failed${NC}"
+            echo -e "${YELLOW}You can install it manually later from: https://openclaw.ai${NC}"
+            echo -e "${YELLOW}The service will still be installed but won't work until OpenClaw is available.${NC}"
         fi
+    elif [[ $REPLY == "2" ]]; then
+        echo -e "${YELLOW}Skipping OpenClaw installation.${NC}"
+        echo -e "${YELLOW}Install it manually from: https://openclaw.ai${NC}"
+        echo -e "${YELLOW}The service won't work until OpenClaw is installed.${NC}"
     else
-        echo -e "${RED}Failed to install OpenClaw automatically.${NC}"
-        echo -e "${YELLOW}Please install OpenClaw manually from: https://openclaw.ai${NC}"
-        read -p "Continue anyway? (y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+        echo -e "${RED}Installation cancelled.${NC}"
+        exit 0
     fi
 else
     echo -e "${GREEN}✓ OpenClaw $(openclaw --version)${NC}"
