@@ -21,6 +21,19 @@ ask_opt()  { local p="$1" v="";   printf '%s' "$p" >"$TTY"; read -r v <"$TTY"; p
 ask_secret(){ local p="$1" v=""; while [ -z "$v" ]; do printf '%s' "$p" >"$TTY"; read -rs v <"$TTY"; echo >"$TTY"; done; printf '%s' "$v"; }
 ask_secret_opt(){ local p="$1" v=""; printf '%s' "$p" >"$TTY"; read -rs v <"$TTY"; echo >"$TTY"; printf '%s' "$v"; }
 
+# Returns 0 if a TCP port is already bound on this host.
+port_in_use() {
+  local p="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"
+  else
+    # bash builtin fallback: if we can connect, something is listening
+    (exec 3<>"/dev/tcp/127.0.0.1/${p}") 2>/dev/null && { exec 3>&- 3<&-; return 0; } || return 1
+  fi
+}
+
 echo "── Commander setup ──────────────────────────────"
 # Suggest a random nature / ocean / sports themed name (user can override).
 SUFFIXES=(wave ocean reef tide coral current breeze forest river canyon summit \
@@ -32,7 +45,16 @@ NAME=$(ask_opt "Commander name [${SUGGEST}]: "); NAME="${NAME:-$SUGGEST}"
 NAME=$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-' | sed 's/-*$//')
 [ -n "$NAME" ] || NAME=commander
 INSTALL_DIR="${INSTALL_DIR:-./$NAME}"
-PORT=$(ask_opt "Host port [8088]: "); PORT="${PORT:-8088}"
+while :; do
+  PORT=$(ask_opt "Host port [8088]: "); PORT="${PORT:-8088}"
+  if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+    echo "  ✗ '$PORT' is not a valid port (1-65535)" >"$TTY"; continue
+  fi
+  if port_in_use "$PORT"; then
+    echo "  ✗ port $PORT is already in use — pick another" >"$TTY"; continue
+  fi
+  break
+done
 echo
 echo "GitHub credentials — required to pull the private image."
 GHCR_USER=$(ask_opt  "GitHub username [${COMMANDER_OWNER}]: "); GHCR_USER="${GHCR_USER:-$COMMANDER_OWNER}"
