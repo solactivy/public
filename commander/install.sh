@@ -46,20 +46,54 @@ port_in_use() {
 
 echo "── Commander setup ──────────────────────────────"
 
-# --- name (bare; container becomes commander-<name>, matching /update) ---
-SUFFIXES=(wave ocean reef tide coral current breeze forest river canyon summit \
-          meadow harbor glacier cliff falcon otter heron marlin surf sprint \
-          rally striker rover comet ember willow cedar aspen pine)
-SUGGEST="${SUFFIXES[$((RANDOM % ${#SUFFIXES[@]}))]}"
-NAME=$(ask_opt "Commander name [${SUGGEST}]: "); NAME="${NAME:-$SUGGEST}"
+# --- detect existing commanders → update one, or install new ---
+# Sources: docker containers named commander-* (excluding transient updaters)
+# and install dirs /opt/commander-*/.env. Deduped by name.
+EXISTING_NAMES=()
+while IFS= read -r _n; do
+  [ -n "$_n" ] && EXISTING_NAMES+=("$_n")
+done < <(
+  {
+    command -v docker >/dev/null 2>&1 && docker ps -a --filter "name=^commander-" --format '{{.Names}}' 2>/dev/null | sed 's/^commander-//'
+    for d in /opt/commander-*/.env; do [ -f "$d" ] && basename "$(dirname "$d")" | sed 's/^commander-//'; done
+  } 2>/dev/null | grep -vE '^(updater-|$)' | sort -u
+)
+
+NAME=""
+if [ "${#EXISTING_NAMES[@]}" -gt 0 ]; then
+  echo
+  echo "Existing commander install(s) detected:"
+  idx=1
+  for n in "${EXISTING_NAMES[@]}"; do
+    st=$(command -v docker >/dev/null 2>&1 && docker ps --filter "name=^commander-${n}$" --format '{{.Status}}' 2>/dev/null | head -1)
+    printf "  %d) commander-%-14s (%s)\n" "$idx" "$n" "${st:-not running}"
+    idx=$((idx+1))
+  done
+  printf "  %d) Install a NEW commander\n" "$idx"
+  sel=$(ask_opt "Select [1-${idx}, default ${idx}=new]: ")
+  if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -lt "$idx" ]; then
+    NAME="${EXISTING_NAMES[$((sel-1))]}"
+    say "Updating existing commander: commander-${NAME}"
+  fi
+fi
+
+# No existing selected → fresh install: pick/confirm a name.
+if [ -z "$NAME" ]; then
+  SUFFIXES=(wave ocean reef tide coral current breeze forest river canyon summit \
+            meadow harbor glacier cliff falcon otter heron marlin surf sprint \
+            rally striker rover comet ember willow cedar aspen pine)
+  SUGGEST="${SUFFIXES[$((RANDOM % ${#SUFFIXES[@]}))]}"
+  NAME=$(ask_opt "Commander name [${SUGGEST}]: "); NAME="${NAME:-$SUGGEST}"
+fi
+
 # sanitize: lowercase, [a-z0-9-], no leading/trailing dash
 NAME=$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+|-+$//g')
-[ -n "$NAME" ] || NAME="$SUGGEST"
+[ -n "$NAME" ] || NAME="commander"
 CONTAINER="commander-${NAME}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/commander-${NAME}}"
 
-# Re-run with the same name = UPGRADE: keep the existing .env/data, just
-# refresh the compose file and pull the new image. Fresh name = full setup.
+# Selected an existing name (or re-ran with the same name) = UPGRADE: keep the
+# existing .env/data, just refresh the compose file and pull the new image.
 UPGRADE=false
 [ -f "$INSTALL_DIR/.env" ] && UPGRADE=true
 
