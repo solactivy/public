@@ -124,7 +124,8 @@ services:
     env_file:
       - .env
     environment:
-      - COMMANDER_COMPOSE_DIR=/host/commander
+      - COMMANDER_COMPOSE_DIR=/host/commander      # where the compose file is visible INSIDE the container
+      - COMMANDER_HOST_DIR=${INSTALL_DIR}           # real host path — the sibling updater recreates from here
     group_add:
       - "${DOCKER_GID}"
     ports:
