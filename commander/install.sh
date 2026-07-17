@@ -9,7 +9,8 @@
 set -euo pipefail
 
 # ---------- config defaults (override via env) ----------
-COMMANDER_OWNER="${COMMANDER_OWNER:-solactivy}"
+# GitHub owner is fixed to solactivy — not prompted, not overridable.
+COMMANDER_OWNER="solactivy"
 COMMANDER_REPO="${COMMANDER_REPO:-commander}"
 COMMANDER_TAG="${COMMANDER_TAG:-latest}"
 IMAGE="ghcr.io/${COMMANDER_OWNER}/${COMMANDER_REPO}:${COMMANDER_TAG}"
@@ -63,11 +64,12 @@ UPGRADE=false
 [ -f "$INSTALL_DIR/.env" ] && UPGRADE=true
 
 # --- GitHub credentials (needed to pull, both modes) ---
+# Owner/user is fixed to solactivy — only the PAT is requested.
+GHCR_USER="$COMMANDER_OWNER"
 echo
-echo "GitHub credentials — required to pull the private image."
-GHCR_USER=$(ask_opt  "GitHub username [${COMMANDER_OWNER}]: "); GHCR_USER="${GHCR_USER:-$COMMANDER_OWNER}"
+echo "GitHub token — required to pull the private image."
 GHCR_PAT=$(ask_secret "GitHub PAT (read:packages): ")
-say "Logging in to GHCR as ${GHCR_USER}…"
+say "Logging in to GHCR…"
 echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
 if [ "$UPGRADE" = true ]; then
